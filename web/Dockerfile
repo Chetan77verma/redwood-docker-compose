@@ -1,4 +1,4 @@
-FROM node:14 as builder
+FROM node:14-alpine as builder
 LABEL org.opencontainers.image.source https://github.com/ajcwebdev/redwood-docker-compose
 
 WORKDIR /app
