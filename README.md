@@ -1,15 +1,3 @@
----
-title: run redwood with docker compose
-description: 
-date: 2021-12-31
-tags:
-  - redwoodjs
-  - docker
-  - prisma
-  - nginx
-cover_image: 
----
-
 [Docker Compose](https://docs.docker.com/compose/) is a tool for defining and running multi-container Docker applications. With Compose, you use a YAML file to configure your application’s services. You can create and start all your services with a single command. 
 
 ## Outline
