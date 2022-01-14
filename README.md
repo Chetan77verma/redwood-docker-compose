@@ -1,4 +1,8 @@
-[Docker Compose](https://docs.docker.com/compose/) is a tool for defining and running multi-container Docker applications. With Compose, you use a YAML file to configure your application’s services. You can create and start all your services with a single command. 
+![00-redwood-docker-cover](https://user-images.githubusercontent.com/12433465/149579072-0b9c912c-5209-419c-b8db-6e6d833e19c0.jpg)
+
+[Docker Compose](https://docs.docker.com/compose/) is a tool for defining and running multi-container Docker applications. With Compose, you use a YAML file to configure your application’s services. You can create and start all your services with a single command.
+
+This example containerizes Redwood's Web and API sides into individual containers that can be run with Docker Compose.
 
 ## Outline
 
@@ -36,10 +40,21 @@ This example will start with a new Redwood project.
 ```bash
 yarn create redwood-app redwood-docker-compose
 cd redwood-docker-compose
-touch web/Dockerfile api/Dockerfile .dockerignore docker-compose.yml web/nginx.conf
+```
+
+Create the following files:
+* Dockerfiles inside the `web` and `api` directories
+* Nginx configuration file in `web` directory
+* `docker-compose.yml` and `.dockerignore` files in the root of the project
+
+```bash
+touch web/Dockerfile api/Dockerfile web/nginx.conf \
+  docker-compose.yml .dockerignore
 ```
 
 ## Set up API Side
+
+To set up the API side we need to have CORS configured, an `apiUrl` specified, and a database migration applied to a production database.
 
 ### Configure CORS
 
@@ -132,7 +147,7 @@ yarn rw prisma migrate dev --name posts
 
 ## Set up Web Side
 
-Create a home page called `HomePage.js` and generate a cell called `BlogPostsCell` to perform our data fetching.
+Create a home page and generate a cell called `BlogPostsCell` to perform our data fetching.
 
 ```bash
 yarn rw g page home /
@@ -212,6 +227,8 @@ yarn rw g scaffold post
 
 ## Set up Docker
 
+We will have two Dockerfiles, a `.dockerignore` file, an `nginx.conf` configuration file, and a `docker-compose.yml` file to stitch it all together.
+
 ### dockerignore
 
 ```
@@ -222,11 +239,10 @@ node_modules
 
 Our `Dockerfile` is using the [`node:14-alpine`](https://hub.docker.com/layers/simbo/node/14-alpine/images/sha256-a054e37f1ed6b2944060f68b0f52b94750d7f7a10444b13bb57a6c5cc58061aa) image. This may cause issues if you are on an M1 and want to build the image locally. Change `node:14-alpine` to `node:14` if you encounter this issue.
 
-We set our working directory to `app` and copy either the `api` side or `web` side along with `.nvmrc`, `graphql.config.js`, `package.json`, `redwood.toml`, and `yarn.lock`. Install all dependencies and add
+We set our working directory to `app` and copy either the `api` side or `web` side along with `.nvmrc`, `graphql.config.js`, `package.json`, `redwood.toml`, and `yarn.lock`.
 
 ```Dockerfile
-FROM node:14
-LABEL org.opencontainers.image.source https://github.com/ajcwebdev/redwood-docker-compose
+FROM node:14-alpine
 
 WORKDIR /app
 
@@ -252,8 +268,7 @@ ENTRYPOINT [ "yarn", "rw", "serve", "api", "--port", "8911", "--rootPath", "/api
 ### Web Dockerfile
 
 ```Dockerfile
-FROM node:14 as builder
-LABEL org.opencontainers.image.source https://github.com/ajcwebdev/redwood-docker-compose
+FROM node:14-alpine as builder
 
 WORKDIR /app
 
@@ -279,6 +294,8 @@ EXPOSE 8910
 ```
 
 ### Nginx Configuration
+
+Nginx is a web server that can also be used as a reverse proxy, load balancer, mail proxy or HTTP cache. Don't ask me to explain this code, but I promise it works.
 
 ```conf
 server {
@@ -328,6 +345,8 @@ services:
 
 ### Build Images
 
+The `docker compose up` command aggregates the output of each container and builds, (re)creates, starts, and attaches to containers for a service.
+
 ```bash
 docker compose up
 ```
@@ -336,15 +355,21 @@ Open `http://localhost:8910/posts` to create a test post and return to `http://l
 
 ![01-localhost-test](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/w78v3kz7aajet0wh5g50.png)
 
+Check the image information with `docker images`.
+
 ```bash
 docker images
 ```
+
+Keep in mind that I am on an M1 so this image is much larger than it would be with the Alpine version of Node. To see different approaches to optimizing your container, see [Dockerize RedwoodJS](https://community.redwoodjs.com/t/dockerize-redwoodjs/2291) and [`redwoodjs-docker`](https://github.com/jeliasson/redwoodjs-docker).
 
 ```
 REPOSITORY           TAG       IMAGE ID       CREATED          SIZE
 redwood-docker_api   latest    243369952fa0   57 seconds ago   2.96GB
 redwood-docker_web   latest    c1610495648c   42 minutes ago   137MB
 ```
+
+See the specific running containers with `docker ps`.
 
 ```bash
 docker ps
@@ -430,36 +455,40 @@ gh repo create redwood-docker-compose \
 If you created a repository from the GitHub website instead of the CLI then you will need to set the remote and push the project with the following commands.
 
 ```bash
-git remote add origin https://github.com/ajcwebdev/redwood-docker-compose.git
+git remote add origin https://github.com/YOUR_USERNAME/redwood-docker-compose.git
 git push -u origin main
 ```
 
 ### Login to ghcr
 
-To login, create a [PAT (personal access token)](https://docs.github.com/en/github/authenticating-to-github/keeping-your-account-and-data-secure/creating-a-personal-access-token) with the ability to read, write, and delete packages and include it instead of `xxxx`.
+To login, create a [PAT (personal access token)](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry#authenticating-to-the-container-registry) and include it instead of `xxxx`.
 
 ```bash
 export CR_PAT=xxxx
 ```
 
-Login with your own username in place of `ajcwebdev`.
+Login with your own username in place of `YOUR_USERNAME`.
 
 ```bash
-echo $CR_PAT | docker login ghcr.io -u ajcwebdev --password-stdin
+echo $CR_PAT | docker login ghcr.io -u YOUR_USERNAME --password-stdin
 ```
 
 ### Tag Images
 
+Docker tags are mutable named references for pulling and running images, similar to branch refs in Git.
+
 ```bash
-docker tag redwood-docker-compose_web ghcr.io/ajcwebdev/redwood-docker-compose_web
-docker tag redwood-docker-compose_api ghcr.io/ajcwebdev/redwood-docker-compose_api
+docker tag redwood-docker-compose_web ghcr.io/YOUR_USERNAME/redwood-docker-compose_web
+docker tag redwood-docker-compose_api ghcr.io/YOUR_USERNAME/redwood-docker-compose_api
 ```
 
 ### Push to Registry
 
+Once you have tagged your image, you can push and pull the images much like you would push or pull a Git repository.
+
 ```bash
-docker push ghcr.io/ajcwebdev/redwood-docker-compose_web:latest
-docker push ghcr.io/ajcwebdev/redwood-docker-compose_api:latest
+docker push ghcr.io/YOUR_USERNAME/redwood-docker-compose_web:latest
+docker push ghcr.io/YOUR_USERNAME/redwood-docker-compose_api:latest
 ```
 
 ### Pull from Registry
@@ -467,6 +496,6 @@ docker push ghcr.io/ajcwebdev/redwood-docker-compose_api:latest
 To test that our project has a docker image published to a public registry, pull it from your local development environment.
 
 ```bash
-docker pull ghcr.io/ajcwebdev/redwood-docker-compose_web:latest
-docker pull ghcr.io/ajcwebdev/redwood-docker-compose_api:latest
+docker pull ghcr.io/YOUR_USERNAME/redwood-docker-compose_web:latest
+docker pull ghcr.io/YOUR_USERNAME/redwood-docker-compose_api:latest
 ```
